@@ -1,0 +1,45 @@
+name: AI Production Auditor
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  security_audit:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Required for git diff
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install openai bandit pylint
+
+      - name: Static Analysis (Bandit)
+        run: |
+          # Security-focused static analysis
+          bandit -r . -f txt -o bandit_report.txt || true
+
+      - name: Run AI Audit
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python auditor/core.py
+
+      - name: Post PR Comment
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          filePath: ai_feedback.md
+          reactions: eyes
